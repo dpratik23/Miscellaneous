@@ -1,6 +1,5 @@
 import java.io.*;
 import java.util.*;
-import java.util.regex.*;
 
 public class SplitAndMap {
     public static void main(String[] args) throws IOException {
@@ -10,40 +9,42 @@ public class SplitAndMap {
         // Read the file content
         List<String> lines = readFile(filePath);
 
-        // Map to store Qm as key and list of QueueInfo as value
-        Map<String, List<String>> qmMap = new LinkedHashMap<>();
+        // Map to store dynamic keys and corresponding list of values
+        Map<String, List<String>> dynamicMap = new LinkedHashMap<>();
 
         // Process the data
-        String currentQm = null;
-        List<String> queueInfoList = null;
+        String currentKey = null;
+        List<String> valueList = null;
+
         for (String line : lines) {
             line = line.trim();
             if (line.startsWith("+++++")) {
                 // Skip separator lines
                 continue;
             }
-            if (line.startsWith("Qm")) {
-                // When a new Qm is found, save the previous Qm data if any
-                if (currentQm != null && queueInfoList != null) {
-                    qmMap.put(currentQm, queueInfoList);
-                }
-                // Start a new Qm section
-                currentQm = line;
-                queueInfoList = new ArrayList<>();
+            if (currentKey == null) {
+                // First non-separator line is treated as the key
+                currentKey = line;
+                valueList = new ArrayList<>();
+            } else if (line.startsWith("Q")) {
+                // If a new key is encountered, store the previous key-value pair
+                dynamicMap.put(currentKey, valueList);
+                currentKey = line;
+                valueList = new ArrayList<>();
             } else {
-                // Add QueueInfo to the current Qm's list
-                if (queueInfoList != null) {
-                    queueInfoList.add(line);
+                // Add the line to the current key's value list
+                if (valueList != null) {
+                    valueList.add(line);
                 }
             }
         }
-        // Add the last Qm data
-        if (currentQm != null && queueInfoList != null) {
-            qmMap.put(currentQm, queueInfoList);
+        // Add the last key-value pair
+        if (currentKey != null && valueList != null) {
+            dynamicMap.put(currentKey, valueList);
         }
 
         // Print the map
-        for (Map.Entry<String, List<String>> entry : qmMap.entrySet()) {
+        for (Map.Entry<String, List<String>> entry : dynamicMap.entrySet()) {
             System.out.println("Key: " + entry.getKey());
             System.out.println("Values: " + entry.getValue());
         }
