@@ -1,48 +1,46 @@
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 
 public class FileCopyUtility {
 
-    public static void main(String[] args) {
-        // Define paths
-        String appName = "myApp"; // Replace with your application name
-        String resourcesFolder = "src/main/resources"; // Path to resources folder
-        String serviceFolder = "service"; // Path to service folder (relative to the project root)
+    public static void copyAndRenameYamlFiles(String resourcesFolder, String serviceFolder, String appName) {
+        Path sourceDir = Paths.get(resourcesFolder);
+        Path targetDir = Paths.get(serviceFolder);
 
-        // Create File objects
-        File resourcesDir = new File(resourcesFolder);
-        File serviceDir = new File(serviceFolder);
-
-        if (!resourcesDir.exists() || !resourcesDir.isDirectory()) {
-            System.out.println("Resources folder does not exist or is not a directory.");
+        if (!Files.exists(sourceDir) || !Files.isDirectory(sourceDir)) {
+            System.out.println("Resources folder does not exist or is not a directory: " + resourcesFolder);
             return;
         }
 
         // Ensure the service folder exists
-        if (!serviceDir.exists()) {
-            serviceDir.mkdirs();
+        try {
+            Files.createDirectories(targetDir);
+        } catch (IOException e) {
+            System.err.println("Error creating service directory: " + e.getMessage());
+            return;
         }
 
-        // Filter and copy YAML files
-        File[] yamlFiles = resourcesDir.listFiles((dir, name) -> name.startsWith("application-") && name.endsWith(".yml"));
-        if (yamlFiles != null) {
-            for (File file : yamlFiles) {
-                try {
-                    String newFileName = file.getName().replace("application-", appName + "-");
-                    Path targetPath = new File(serviceDir, newFileName).toPath();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(sourceDir, "application-*.yml")) {
+            for (Path file : stream) {
+                String fileName = file.getFileName().toString();
+                String newFileName = fileName.replace("application-", appName + "-");
+                Path targetPath = targetDir.resolve(newFileName);
 
-                    // Copy and rename file
-                    Files.copy(file.toPath(), targetPath, StandardCopyOption.REPLACE_EXISTING);
-                    System.out.println("Copied and renamed: " + file.getName() + " to " + targetPath.getFileName());
-                } catch (IOException e) {
-                    System.err.println("Error copying file " + file.getName() + ": " + e.getMessage());
-                }
+                // Copy and rename file
+                Files.copy(file, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("Copied and renamed: " + fileName + " → " + newFileName);
             }
-        } else {
-            System.out.println("No YAML files found in the resources folder.");
+        } catch (IOException e) {
+            System.err.println("Error processing YAML files: " + e.getMessage());
         }
+    }
+
+    public static void main(String[] args) {
+        String resourcesFolder = "src/main/resources"; // Path to resources folder
+        String serviceFolder = "service"; // Path to service folder
+        String appName = "myApp"; // Application name to rename the files
+
+        copyAndRenameYamlFiles(resourcesFolder, serviceFolder, appName);
     }
 }
