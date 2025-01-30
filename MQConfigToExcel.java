@@ -83,34 +83,69 @@ public class MQConfigToExcel {
         Map<String, Map<String, String>> topics = new HashMap<>();
         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
             String line;
-            String currentTopic = null;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("DEFINE TOPIC")) {
                     // Extract topic name
                     Pattern pattern = Pattern.compile("DEFINE TOPIC\\(([^)]+)\\)");
                     Matcher matcher = pattern.matcher(line);
                     if (matcher.find()) {
-                        currentTopic = matcher.group(1);
-                        topics.put(currentTopic, new HashMap<>());
+                        String topicName = matcher.group(1);
+                        topics.put(topicName, new HashMap<>());
                     }
                 } else if (line.startsWith("DEFINE SUB")) {
-                    // Extract subscriber details
-                    Pattern pattern = Pattern.compile("DEFINE SUB\\(([^)]+)\\) TOPICOBJ\\(([^)]+)\\) DESTQ\\(([^)]+)\\)");
-                    Matcher matcher = pattern.matcher(line);
-                    if (matcher.find()) {
-                        String subscriberQueue = matcher.group(1);
-                        String topicName = matcher.group(2);
-                        String destQueue = matcher.group(3);
-
-                        if (!topics.containsKey(topicName)) {
-                            topics.put(topicName, new HashMap<>());
-                        }
-                        topics.get(topicName).put(subscriberQueue, destQueue);
+                    // Start tracking the SUB definition
+                    StringBuilder subDefinition = new StringBuilder(line);
+                    while ((line = reader.readLine()) != null && !line.trim().isEmpty()) {
+                        subDefinition.append(" ").append(line.trim());
                     }
+
+                    // Parse the SUB definition
+                    parseSubDefinition(topics, subDefinition.toString());
                 }
             }
         }
         return topics;
+    }
+
+    private static void parseSubDefinition(Map<String, Map<String, String>> topics, String subDefinition) {
+        // Extract subscriber queue name
+        Pattern subPattern = Pattern.compile("DEFINE SUB\\(([^)]+)\\)");
+        Matcher subMatcher = subPattern.matcher(subDefinition);
+        if (!subMatcher.find()) {
+            return; // Invalid SUB definition
+        }
+        String subscriberQueue = subMatcher.group(1);
+
+        // Extract TOPICSTR
+        Pattern topicStrPattern = Pattern.compile("TOPICSTR\\(([^)]+)\\)");
+        Matcher topicStrMatcher = topicStrPattern.matcher(subDefinition);
+        if (!topicStrMatcher.find()) {
+            return; // TOPICSTR not found
+        }
+        String topicString = topicStrMatcher.group(1);
+
+        // Extract DEST
+        Pattern destPattern = Pattern.compile("DEST\\(([^)]+)\\)");
+        Matcher destMatcher = destPattern.matcher(subDefinition);
+        if (!destMatcher.find()) {
+            return; // DEST not found
+        }
+        String destQueue = destMatcher.group(1);
+
+        // Find the topic name associated with the topic string
+        String topicName = findTopicNameByString(topics, topicString);
+        if (topicName != null) {
+            topics.get(topicName).put(subscriberQueue, destQueue);
+        }
+    }
+
+    private static String findTopicNameByString(Map<String, Map<String, String>> topics, String topicString) {
+        for (Map.Entry<String, Map<String, String>> entry : topics.entrySet()) {
+            if (entry.getValue().containsKey("TOPICSTR") && entry.getValue().get("TOPICSTR").equals(topicString)) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     private static String extractValue(String line) {
@@ -162,7 +197,7 @@ public class MQConfigToExcel {
         Row headerRow = sheet.createRow(rowNum++);
         headerRow.createCell(0).setCellValue("Topic Name");
         headerRow.createCell(1).setCellValue("Subscriber Queue Name");
-        headerRow.createCell(2).setCellValue("Subscriber Queue Manager");
+        headerRow.createCell(2).setCellValue("Destination Queue");
 
         for (Map.Entry<String, Map<String, String>> entry : topics.entrySet()) {
             String topicName = entry.getKey();
