@@ -1,48 +1,56 @@
-// MessageDetails.java
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+
 public class MessageDetails {
     private String originalMessage;
     private String bankName;
-    private String semeValue;
-    // Add more fields for other tags you need to extract
+    private String messageType;
 
-    public MessageDetails(String originalMessage, String bankName, String semeValue) {
+    private Map<String, String> finalTagValues;
+
+    public MessageDetails(String originalMessage, String bankName, String messageType) {
         this.originalMessage = originalMessage;
         this.bankName = bankName;
-        this.semeValue = semeValue;
+        this.messageType = messageType;
+        this.finalTagValues = new HashMap<>();
     }
 
-    // Getters for all fields
-    public String getOriginalMessage() {
-        return originalMessage;
+    public String getOriginalMessage() { return originalMessage; }
+    public String getBankName() { return bankName; }
+    public String getMessageType() { return messageType; }
+
+    public void setFinalTagValue(String tagName, String value) {
+        finalTagValues.put(tagName, Objects.requireNonNullElse(value, ""));
     }
 
-    public String getBankName() {
-        return bankName;
+    public String getFinalTagValue(String tagName) {
+        return Objects.requireNonNullElse(finalTagValues.get(tagName), "");
     }
 
-    public String getSemeValue() {
-        return semeValue;
-    }
-
-    // You can add a method to get CSV header or line
+    @Override
     public String toCsvHeader() {
-        return "OriginalMessage,BankName,SEMEValue";
+        return "OriginalMessage,BankName,MessageType,SEME,SAFE,PSET,SOMEOTHERTAG";
     }
 
+    @Override
     public String toCsvLine() {
-        // Simple CSV escaping for now. For production, consider robust CSV libraries.
         return escapeCsv(originalMessage) + "," +
                escapeCsv(bankName) + "," +
-               escapeCsv(semeValue);
+               escapeCsv(messageType) + "," +
+               escapeCsv(getFinalTagValue("SEME")) + "," +
+               escapeCsv(getFinalTagValue("SAFE")) + "," +
+               escapeCsv(getFinalTagValue("PSET")) + "," +
+               escapeCsv(getFinalTagValue("SOMEOTHERTAG"));
     }
 
     private String escapeCsv(String data) {
         if (data == null) {
             return "";
         }
-        String escapedData = data.replace("\"", "\"\""); // Escape double quotes
+        String escapedData = data.replace("\"", "\"\"");
         if (escapedData.contains(",") || escapedData.contains("\"") || escapedData.contains("\n")) {
-            return "\"" + escapedData + "\""; // Enclose in quotes if it contains comma, quote or newline
+            return "\"" + escapedData + "\"";
         }
         return escapedData;
     }
